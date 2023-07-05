@@ -458,6 +458,53 @@ class NovaCloudController(test_utils.OpenStackBaseTest):
             alternate_entry,
             services)
 
+    def test_904_enable_audit_middleware(self):
+        current_value = zaza.model.get_application_config(
+            'nova-cloud-controller')['audit-middleware']
+        try:
+            current_value = current_value['value']
+        except KeyError:
+            current_value = False
+
+        new_value = not current_value
+
+        new_value_str = new_value and '/etc/nova/api_audit_map.conf' or ''
+        current_value_str = current_value and '' or '/etc/nova/api_audit_map.conf'
+
+        set_default = {'audit-middleware': current_value}
+        set_alternate = {'audit-middleware': new_value}
+
+        expected_conf_section = 'filter:audit'
+        expected_conf_key = 'audit_map_file'
+
+        # In case quota-count-usage-from-placement is False, the quota
+        # section  in nova conf file is empty
+        if current_value:
+            default_entry = {expected_conf_section: {
+                expected_conf_key: [current_value_str]}}
+            alternate_entry = {expected_conf_section: {}}
+        else:
+            default_entry = {expected_conf_section: {}}
+            alternate_entry = {expected_conf_section: {
+                expected_conf_key: [new_value_str]}}
+
+        # Config file affected by juju set config change
+        conf_file = '/etc/nova/api-paste.ini'
+
+        services = self.services
+
+        # Make config change, check for service restarts
+        logging.info(
+            'Setting config on nova-cloud-controller to {}'.format(
+                set_alternate))
+        self.restart_on_changed(
+            conf_file,
+            set_default,
+            set_alternate,
+            default_entry,
+            alternate_entry,
+            services)
+
 
 class SecurityTests(test_utils.OpenStackBaseTest):
     """nova-compute and nova-cloud-controller security tests."""
